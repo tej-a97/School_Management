@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Teachers{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Teachers</h1>
+    <p class="muted">Admin-only: manage teacher accounts.</p>
+  </div>
+  <a href="{{ url_for('teacher_new') }}" class="btn btn-primary">+ Add Teacher</a>
+</div>
+
+<!-- Search -->
+<form method="GET" class="filters">
+  <div>
+    <label>Search</label>
+    <input type="text" name="q" value="{{ q }}" placeholder="Name or username…" />
+  </div>
+  <button class="btn btn-primary" type="submit">Search</button>
+  {% if q %}
+    <a href="{{ url_for('teachers') }}" class="btn btn-ghost">Clear</a>
+  {% endif %}
+</form>
+
+<div class="card no-pad">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Full Name</th>
+          <th>Username</th>
+          <th>Phone</th>
+          <th>Subjects</th>
+          <th>Status</th>
+          <th>Last Login</th>
+          <th class="right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in teachers %}
+          <tr>
+            <td><a href="{{ url_for('teacher_detail', uid=t.id) }}">{{ t.full_name }}</a></td>
+            <td><span class="pill">@{{ t.username }}</span></td>
+            <td>{{ t.phone or '—' }}</td>
+            <td>{{ t.subject_assignment or '—' }}</td>
+            <td>
+              {% if t.must_change_password %}
+                <span class="badge badge-amber">Pending password change</span>
+              {% else %}
+                <span class="badge badge-green">Active</span>
+              {% endif %}
+            </td>
+            <td>{{ t.last_login.strftime('%d %b %Y, %I:%M %p') if t.last_login else '—' }}</td>
+            <td class="right actions">
+              <a href="{{ url_for('teacher_edit', uid=t.id) }}" class="btn btn-sm">Edit</a>
+              <form method="POST" action="{{ url_for('teacher_reset', uid=t.id) }}" class="inline-reset" onsubmit="return confirm('Reset password for this teacher?');">
+                <input type="password" name="new_password" placeholder="New password" minlength="6" required />
+                <button class="btn btn-sm" type="submit">Reset</button>
+              </form>
+              <form method="POST" action="{{ url_for('teacher_delete', uid=t.id) }}" onsubmit="return confirm('Remove this teacher?');" style="display:inline">
+                <button class="btn btn-sm btn-danger" type="submit">Remove</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="empty">No teachers found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

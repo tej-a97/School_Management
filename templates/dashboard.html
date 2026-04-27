@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Dashboard</h1>
+  <p class="muted">Welcome back, {{ current_user.full_name }}. &nbsp;|&nbsp; 📅 {{ today_date }}</p>
+</div>
+
+<div class="stats-grid">
+  <a href="{{ url_for('students') }}" class="stat-card stat-blue clickable">
+    <div class="stat-label">{% if current_user.role == 'teacher' %}My Class Students{% else %}Total Students{% endif %}</div>
+    <div class="stat-value">{% if current_user.role == 'teacher' and teacher_stats and not teacher_stats.not_assigned %}{{ teacher_stats.total_students }}{% else %}{{ stats.students }}{% endif %}</div>
+    <div class="stat-link">View all &rarr;</div>
+  </a>
+  {% if current_user.role == 'admin' %}
+  <a href="{{ url_for('teachers') }}" class="stat-card stat-purple clickable">
+    <div class="stat-label">Teachers</div>
+    <div class="stat-value">{{ stats.teachers }}</div>
+    <div class="stat-link">View all &rarr;</div>
+  </a>
+  {% endif %}
+  <a href="{{ url_for('attendance') }}" class="stat-card stat-green clickable">
+    <div class="stat-label">Present Today</div>
+    <div class="stat-value">{{ stats.today_present }}</div>
+    <div class="stat-link">View attendance &rarr;</div>
+  </a>
+  <a href="{{ url_for('attendance') }}" class="stat-card stat-red clickable">
+    <div class="stat-label">Absent Today</div>
+    <div class="stat-value">{{ stats.today_absent }}</div>
+    <div class="stat-link">View attendance &rarr;</div>
+  </a>
+</div>
+
+{% if current_user.role == 'admin' and pending_requests_count > 0 %}
+<a href="{{ url_for('attendance_requests') }}" style="text-decoration:none;">
+  <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:0.85rem 1.25rem;margin-bottom:1rem;color:#854d0e;font-size:0.95rem;display:flex;justify-content:space-between;align-items:center;">
+    <span>🔐 <strong>{{ pending_requests_count }} attendance approval request{{ 's' if pending_requests_count != 1 }}</strong> pending your review.</span>
+    <span style="font-weight:700;">Review →</span>
+  </div>
+</a>
+{% endif %}
+{% if current_user.role == 'admin' and nav_marks_pending > 0 %}
+<a href="{{ url_for('marks_requests') }}" style="text-decoration:none;">
+  <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:0.85rem 1.25rem;margin-bottom:1rem;color:#854d0e;font-size:0.95rem;display:flex;justify-content:space-between;align-items:center;">
+    <span>📝 <strong>{{ nav_marks_pending }} marks approval request{{ 's' if nav_marks_pending != 1 }}</strong> pending your review.</span>
+    <span style="font-weight:700;">Review →</span>
+  </div>
+</a>
+{% endif %}
+
+{% if is_sunday or holiday %}
+<div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:0.85rem 1.25rem; margin-bottom:1rem; color:#dc2626; font-size:0.95rem;">
+  {% if is_sunday %}
+    🚫 <strong>Today is Sunday</strong> — No school today. Attendance cannot be marked.
+  {% else %}
+    🚫 <strong>Holiday: {{ holiday.reason }}</strong> — School is closed today. Attendance cannot be marked.
+  {% endif %}
+</div>
+{% endif %}
+
+{% if current_user.role == 'teacher' and teacher_stats %}
+  {% if teacher_stats.not_assigned %}
+  <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:0.85rem 1.25rem; margin-bottom:1rem; color:#92400e; font-size:0.95rem;">
+    ⚠️ <strong>No class assigned yet!</strong> Please contact the admin to assign you a class.
+  </div>
+  {% else %}
+  <h2 class="section-title">Your Class — {{ teacher_stats.assigned_class }}{% if teacher_stats.assigned_section %} · Section {{ teacher_stats.assigned_section }}{% endif %}</h2>
+  <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+    <div class="stat-card stat-green">
+      <div class="stat-label">Attendance Marked Today</div>
+      <div class="stat-value">{{ teacher_stats.today_marked }}</div>
+      <div class="stat-link">out of {{ teacher_stats.total_students }} students</div>
+    </div>
+    <div class="stat-card stat-red">
+      <div class="stat-label">Not Yet Marked Today</div>
+      <div class="stat-value">{{ teacher_stats.not_marked_today }}</div>
+      <div class="stat-link"><a href="{{ url_for('attendance') }}" style="color:inherit;">Mark now &rarr;</a></div>
+    </div>
+  </div>
+  {% endif %}
+{% endif %}
+
+<!-- Today's Attendance Chart -->
+<h2 class="section-title">Today's Attendance</h2>
+<div class="card" style="display:flex; align-items:center; gap:2rem; flex-wrap:wrap;">
+  <div style="position:relative; width:180px; height:180px; flex-shrink:0; margin:auto;">
+    <canvas id="attendanceChart" width="180" height="180"></canvas>
+    <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center;">
+      <div style="font-size:1.6rem; font-weight:700;" id="attendancePct">-</div>
+      <div style="font-size:0.75rem; color:#888;">Present</div>
+    </div>
+  </div>
+  <div style="flex:1; min-width:160px;">
+    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
+      <span style="width:14px;height:14px;border-radius:50%;background:#22c55e;display:inline-block;"></span>
+      <span>Present — <strong>{{ stats.today_present }}</strong> students</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
+      <span style="width:14px;height:14px;border-radius:50%;background:#ef4444;display:inline-block;"></span>
+      <span>Absent — <strong>{{ stats.today_absent }}</strong> students</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:0.5rem;">
+      <span style="width:14px;height:14px;border-radius:50%;background:#d1d5db;display:inline-block;"></span>
+      <span>Not Marked — <strong id="notMarked">-</strong> students</span>
+    </div>
+    <a href="{{ url_for('attendance') }}" class="btn btn-primary" style="margin-top:1rem; display:inline-block;">Go to Attendance &rarr;</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const present = {{ stats.today_present }};
+  const absent = {{ stats.today_absent }};
+  const total = {% if current_user.role == 'teacher' and teacher_stats and not teacher_stats.not_assigned %}{{ teacher_stats.total_students }}{% else %}{{ stats.students }}{% endif %};
+  const notMarked = Math.max(0, total - present - absent);
+  const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+
+  document.getElementById('attendancePct').textContent = pct + '%';
+  document.getElementById('notMarked').textContent = notMarked;
+
+  const ctx = document.getElementById('attendanceChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Present', 'Absent', 'Not Marked'],
+      datasets: [{
+        data: [present, absent, notMarked],
+        backgroundColor: ['#22c55e', '#ef4444', '#d1d5db'],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      cutout: '72%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: ctx => ` ${ctx.label}: ${ctx.parsed} students`
+      }}},
+      animation: { animateRotate: true, duration: 900 }
+    }
+  });
+</script>
+
+{% if fee_stats %}
+<h2 class="section-title">Fees</h2>
+<div class="stats-grid">
+  <a href="{{ url_for('fees') }}" class="stat-card stat-blue clickable">
+    <div class="stat-label">Total Fees</div>
+    <div class="stat-value">₹{{ '%.2f'|format(fee_stats.total) }}</div>
+    <div class="stat-link">View all &rarr;</div>
+  </a>
+  <a href="{{ url_for('fees', status='Paid') }}" class="stat-card stat-green clickable">
+    <div class="stat-label">Paid</div>
+    <div class="stat-value">₹{{ '%.2f'|format(fee_stats.paid) }}</div>
+    <div class="stat-link">View paid &rarr;</div>
+  </a>
+  <a href="{{ url_for('fees', status='Unpaid') }}" class="stat-card stat-red clickable">
+    <div class="stat-label">Unpaid</div>
+    <div class="stat-value">₹{{ '%.2f'|format(fee_stats.unpaid) }}</div>
+    <div class="stat-link">View unpaid &rarr;</div>
+  </a>
+</div>
+{% endif %}
+
+{% if current_user.role == 'admin' %}
+<div class="card">
+  <h2>📝 Recent Activity</h2>
+  {% if recent_activity %}
+  <ul style="list-style:none; padding:0; margin:0;">
+    {% for activity in recent_activity %}
+    <li style="display:flex; align-items:flex-start; gap:0.75rem; padding:0.65rem 0; border-bottom:1px solid #f1f5f9;">
+      <span style="font-size:1.3rem;">{{ activity.icon }}</span>
+      <div>
+        <div style="font-size:0.95rem;">{{ activity.text | safe }}</div>
+        <div style="font-size:0.78rem; color:#94a3b8; margin-top:2px;">{{ activity.time }}</div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No recent activity yet.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="quick-actions">
+    {% if current_user.role == 'teacher' %}
+      <a href="{{ url_for('student_new') }}" class="btn btn-primary">+ Add Student</a>
+      <a href="{{ url_for('attendance') }}" class="btn">Mark Attendance</a>
+      <a href="{{ url_for('marks') }}" class="btn">Enter Marks</a>
+    {% else %}
+      <a href="{{ url_for('students') }}" class="btn">View Students</a>
+      <a href="{{ url_for('attendance') }}" class="btn">View Attendance</a>
+      <a href="{{ url_for('marks') }}" class="btn">View Marks</a>
+      <a href="{{ url_for('fees') }}" class="btn btn-primary">Manage Fees</a>
+      <a href="{{ url_for('teacher_new') }}" class="btn">+ Add Teacher</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Manage Holidays{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>🗓️ Manage Holidays</h1>
+    <p class="muted">Add or remove school holidays. Sundays are automatically blocked. Teachers cannot mark attendance on these days.</p>
+  </div>
+</div>
+
+<!-- Add Holiday Form -->
+<div class="card form-card">
+  <h2>Add Holiday</h2>
+  <form method="POST" class="form grid-2">
+    <input type="hidden" name="action" value="add" />
+    <div>
+      <label>Date</label>
+      <input type="date" name="date" required min="{{ today }}" />
+    </div>
+    <div>
+      <label>Reason</label>
+      <input type="text" name="reason" required placeholder="e.g. Diwali, Republic Day, School Annual Day" />
+    </div>
+    <div class="span-2 form-actions">
+      <button class="btn btn-primary" type="submit">+ Add Holiday</button>
+    </div>
+  </form>
+</div>
+
+<!-- Holidays List -->
+<div class="card no-pad">
+  <h2 class="card-title">Upcoming & Past Holidays</h2>
+
+  <!-- Sundays note -->
+  <div style="padding:0.75rem 1.25rem; background:#fefce8; border-bottom:1px solid #fef08a; font-size:0.88rem; color:#854d0e;">
+    📌 <strong>Sundays are automatically blocked</strong> — no need to add them manually.
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Day</th>
+          <th>Reason</th>
+          <th class="right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in holidays %}
+          <tr>
+            <td>{{ h.date.strftime('%d %b %Y') }}</td>
+            <td>{{ h.date.strftime('%A') }}</td>
+            <td>{{ h.reason }}</td>
+            <td class="right">
+              <form method="POST" onsubmit="return confirm('Remove this holiday?');" style="display:inline">
+                <input type="hidden" name="action" value="delete" />
+                <input type="hidden" name="holiday_id" value="{{ h.id }}" />
+                <button class="btn btn-sm btn-danger" type="submit">Remove</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4" class="empty">No holidays added yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

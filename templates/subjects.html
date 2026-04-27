@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Manage Subjects{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Manage Subjects</h1>
+    <p class="muted">Define subjects for each class. Teachers will select from these when entering marks.</p>
+  </div>
+</div>
+
+<!-- Add Subject Form -->
+<div class="card form-card">
+  <h2>Add Subject</h2>
+  <form method="POST" class="form grid-2">
+    <input type="hidden" name="action" value="add" />
+    <div>
+      <label>Class</label>
+      <select name="class_name" required>
+        <option value="">-- Select Class --</option>
+        {% for c in class_options %}
+          <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Subject Name</label>
+      <input type="text" name="name" required placeholder="e.g. Mathematics" />
+    </div>
+    <div class="span-2 form-actions">
+      <button class="btn btn-primary" type="submit">+ Add Subject</button>
+    </div>
+  </form>
+</div>
+
+<!-- Subjects List -->
+{% if subjects_by_class %}
+  {% for class_name, subject_list in subjects_by_class.items() %}
+  <div class="card">
+    <h2>{{ class_name }}</h2>
+    <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.5rem;">
+      {% for s in subject_list %}
+      <div style="display:flex; align-items:center; gap:0.4rem; background:#f1f5f9; border-radius:999px; padding:0.3rem 0.75rem; font-size:0.9rem;">
+        <span>{{ s.name }}</span>
+        <form method="POST" style="display:inline;" onsubmit="return confirm('Delete {{ s.name }}?');">
+          <input type="hidden" name="action" value="delete" />
+          <input type="hidden" name="subject_id" value="{{ s.id }}" />
+          <button type="submit" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:1rem; line-height:1; padding:0;">✕</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card">
+    <p class="empty">No subjects defined yet. Add subjects above to get started.</p>
+  </div>
+{% endif %}
+{% endblock %}

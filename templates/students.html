@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Students{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Students</h1>
+    <p class="muted">{% if current_user.role == 'admin' %}View and update student records.{% else %}Manage all student records.{% endif %}</p>
+  </div>
+  {% if current_user.role == 'teacher' %}
+    <a href="{{ url_for('student_new') }}" class="btn btn-primary">+ Add Student</a>
+  {% endif %}
+</div>
+
+{% if class_chart %}
+<div class="card chart-card">
+  <h2 class="card-title">Class Strength</h2>
+  <div class="chart-wrap"><canvas id="classChart"></canvas></div>
+</div>
+<script>
+  (function () {
+    const ctx = document.getElementById('classChart');
+    if (!ctx) return;
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: {{ class_chart.labels | tojson }},
+        datasets: [{
+          label: 'Number of Students',
+          data: {{ class_chart.data | tojson }},
+          backgroundColor: 'rgba(59, 130, 246, 0.75)',
+          borderColor: 'rgba(37, 99, 235, 1)',
+          borderWidth: 1,
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { precision: 0 } }
+        }
+      }
+    });
+  })();
+</script>
+{% endif %}
+
+<form method="GET" class="filters">
+  <div>
+    <label>Search</label>
+    <input type="text" name="q" value="{{ q }}" placeholder="Name or Roll number..." />
+  </div>
+  {% if current_user.role == 'admin' %}
+  <div>
+    <label>Class</label>
+    <select name="class_name">
+      <option value="">All classes</option>
+      {% for c in class_options %}
+        <option value="{{ c }}" {% if c == class_filter %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Section</label>
+    <select name="section">
+      <option value="">All sections</option>
+      {% for s in section_options %}
+        <option value="{{ s }}" {% if s == section_filter %}selected{% endif %}>Section {{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% else %}
+  <!-- Teacher: show their assigned class as read-only info -->
+  <div style="display:flex; align-items:center; gap:0.5rem; background:#eff6ff; border-radius:6px; padding:0.4rem 0.85rem; font-size:0.9rem; color:#2563eb;">
+    📚 {{ class_filter }}{% if section_filter %} · Section {{ section_filter }}{% endif %}
+  </div>
+  {% endif %}
+  <button class="btn btn-primary" type="submit">Search</button>
+  {% if q %}
+    <a href="{{ url_for('students') }}" class="btn btn-ghost">Clear</a>
+  {% endif %}
+</form>
+
+<div class="card no-pad">
+  <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 0.9rem;">
+    {% if q or class_filter or section_filter %}
+      🔍 Found <strong>{{ students|length }}</strong> student{{ 's' if students|length != 1 else '' }} matching your filter
+    {% else %}
+      👨‍🎓 Total <strong>{{ students|length }}</strong> student{{ 's' if students|length != 1 else '' }} enrolled
+    {% endif %}
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Roll No.</th>
+          <th>Name</th>
+          <th>Class</th>
+          <th>Section</th>
+          <th>DOB</th>
+          <th>Parent</th>
+          <th class="right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in students %}
+        <tr>
+          <td><span class="pill">{{ s.roll_number }}</span></td>
+          <td><a href="{{ url_for('student_detail', sid=s.id) }}">{{ s.name }}</a></td>
+          <td>{{ s.class_name }}</td>
+          <td>{{ s.section or '—' }}</td>
+          <td>{{ s.dob.strftime('%Y-%m-%d') }}</td>
+          <td>{{ s.parent_name }}</td>
+          <td class="right actions">
+            <a href="{{ url_for('student_detail', sid=s.id) }}" class="btn btn-sm">View</a>
+            <a href="{{ url_for('student_edit', sid=s.id) }}" class="btn btn-sm">Edit</a>
+            {% if current_user.role == 'admin' %}
+              <form method="POST" action="{{ url_for('student_delete', sid=s.id) }}" onsubmit="return confirm('Delete this student?');" style="display:inline">
+                <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="empty">No students found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

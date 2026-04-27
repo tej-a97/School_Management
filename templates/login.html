@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Login - School Management{% endblock %}
+{% block guest_content %}
+<div class="login-wrapper">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="brand-logo big">SM</div>
+      <h1>School Management</h1>
+      <p>Sign in to continue</p>
+    </div>
+    <form method="POST" class="form">
+      <label>Username</label>
+      <input type="text" name="username" required autofocus />
+      <label>Password</label>
+      <input type="password" name="password" required />
+      <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+    </form>
+    <div class="login-hint">
+      <strong>Demo accounts</strong>
+      <div>Admin — <code>admin</code> / <code>admin123</code></div>
+      <div>Teacher — <code>teacher</code> / <code>teacher123</code></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

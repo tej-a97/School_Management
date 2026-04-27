@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}{{ student.name }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>{{ student.name }}</h1>
+    <p class="muted">Roll {{ student.roll_number }} · Class {{ student.class_name }}{% if student.section %} · Section {{ student.section }}{% endif %}</p>
+  </div>
+  <div style="display:flex;gap:0.5rem;">
+    <a href="{{ url_for('student_edit', sid=student.id) }}" class="btn">Edit</a>
+    <a href="{{ url_for('students') }}" class="btn btn-ghost">&larr; Back</a>
+  </div>
+</div>
+
+{# ── Row 1: Profile + Attendance Summary ── #}
+<div class="grid-2 gap">
+  <div class="card">
+    <h2>Profile</h2>
+    <dl class="info-list">
+      <dt>Date of Birth</dt><dd>{{ student.dob.strftime('%d %b %Y') }}</dd>
+      <dt>Parent / Guardian</dt><dd>{{ student.parent_name }}</dd>
+      <dt>Parent Phone</dt><dd>{{ student.parent_phone or '—' }}</dd>
+      <dt>Address</dt><dd>{{ student.address or '—' }}</dd>
+      <dt>Class</dt><dd>{{ student.class_name }}{% if student.section %} · Section {{ student.section }}{% endif %}</dd>
+      <dt>Roll Number</dt><dd>{{ student.roll_number }}</dd>
+    </dl>
+  </div>
+
+  <div class="card">
+    <h2>Attendance Summary</h2>
+    {% if att_total %}
+      <div class="result-summary">
+        <div><span class="muted">Days Present</span><strong>{{ att_present }} / {{ att_total }}</strong></div>
+        <div><span class="muted">Days Absent</span><strong>{{ att_total - att_present }}</strong></div>
+        <div>
+          <span class="muted">Attendance %</span>
+          <strong style="color:{% if att_pct >= 75 %}#15803d{% elif att_pct >= 50 %}#d97706{% else %}#dc2626{% endif %};">
+            {{ '%.1f'|format(att_pct) }}%
+          </strong>
+        </div>
+      </div>
+      <div class="att-bar" style="margin-top:0.75rem;">
+        <div class="att-bar-fill" style="width:{{ att_pct }}%;">
+          {% if att_pct >= 12 %}{{ '%.1f'|format(att_pct) }}%{% endif %}
+        </div>
+      </div>
+      {% if att_pct < 75 %}
+        <p style="font-size:0.82rem;color:#dc2626;margin-top:0.5rem;">⚠️ Attendance below 75% — action may be required.</p>
+      {% endif %}
+    {% else %}
+      <p class="empty">No attendance records yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Row 2: Fee Summary ── #}
+<div class="card">
+  <h2>Fee Summary</h2>
+  {% if fees %}
+    <div class="result-summary" style="margin-bottom:1rem;">
+      <div><span class="muted">Total Fees</span><strong>₹{{ '%.2f'|format(fee_total) }}</strong></div>
+      <div><span class="muted">Paid</span><strong style="color:#15803d;">₹{{ '%.2f'|format(fee_paid) }}</strong></div>
+      <div><span class="muted">Unpaid</span><strong style="color:{% if fee_unpaid > 0 %}#dc2626{% else %}#15803d{% endif %};">₹{{ '%.2f'|format(fee_unpaid) }}</strong></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th class="right">Amount</th>
+            <th>Due Date</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in fees %}
+          <tr>
+            <td>{{ f.description or '—' }}</td>
+            <td class="right">₹{{ '%.2f'|format(f.amount) }}</td>
+            <td>{{ f.due_date.strftime('%d %b %Y') if f.due_date else '—' }}</td>
+            <td>
+              <span class="badge badge-{{ 'green' if f.status == 'Paid' else 'red' }}">{{ f.status }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="empty">No fee records found.</p>
+  {% endif %}
+</div>
+
+{# ── Row 3: Marks Pivot Table ── #}
+<div class="card no-pad">
+  <h2 class="card-title">
+    📊 Academic Marks
+    {% if grand_max %}
+      <span class="muted" style="font-size:0.85rem;font-weight:400;margin-left:0.5rem;">
+        Overall: {{ '%.1f'|format(grand_total) }} / {{ '%.0f'|format(grand_max) }}
+        &nbsp;·&nbsp;
+        <span style="color:{% if grand_pct >= 75 %}#15803d{% elif grand_pct >= 50 %}#d97706{% else %}#dc2626{% endif %};font-weight:600;">
+          {{ '%.1f'|format(grand_pct) }}%
+        </span>
+      </span>
+    {% endif %}
+  </h2>
+  {% if pivot_rows %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Subject</th>
+          {% for exam in all_exams %}
+            <th class="right">{{ exam }}<br><span style="font-size:0.75rem;font-weight:400;color:#94a3b8;">/ {{ max_per_exam[exam]|int }}</span></th>
+          {% endfor %}
+          <th class="right">Total</th>
+          <th class="right">%</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in pivot_rows %}
+        <tr>
+          <td style="font-weight:500;">{{ r.subject }}</td>
+          {% for exam in all_exams %}
+            {% set sc = r.scores[exam] %}
+            <td class="right">
+              {% if sc is not none %}
+                <span style="font-weight:500;">{{ '%.1f'|format(sc) }}</span>
+                {% if sc >= max_per_exam[exam] * 0.35 %}
+                  <span style="color:#16a34a;font-size:0.72rem;font-weight:700;margin-left:2px;">P</span>
+                {% else %}
+                  <span style="color:#dc2626;font-size:0.72rem;font-weight:700;margin-left:2px;">F</span>
+                {% endif %}
+              {% else %}
+                <span style="color:#cbd5e1;">—</span>
+              {% endif %}
+            </td>
+          {% endfor %}
+          <td class="right" style="font-weight:600;">{{ r.total }}</td>
+          <td class="right">
+            {% if r.pct_val is not none %}
+              <span style="font-weight:600;color:{% if r.pct_val >= 75 %}#15803d{% elif r.pct_val >= 50 %}#d97706{% else %}#dc2626{% endif %};">
+                {{ r.pct }}
+              </span>
+            {% else %}
+              <span style="color:#cbd5e1;">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if all_exams %}
+      <tfoot>
+        <tr style="background:#f8fafc;font-weight:600;font-size:0.88rem;color:#475569;">
+          <td style="padding:0.5rem 0.75rem;">Overall</td>
+          {% for exam in all_exams %}
+            <td class="right">—</td>
+          {% endfor %}
+          <td class="right">{{ '%.1f'|format(grand_total) }} / {{ '%.0f'|format(grand_max) }}</td>
+          <td class="right">
+            <span style="color:{% if grand_pct >= 75 %}#15803d{% elif grand_pct >= 50 %}#d97706{% else %}#dc2626{% endif %};">
+              {{ '%.1f'|format(grand_pct) }}%
+            </span>
+          </td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+  {% else %}
+    <p class="empty" style="padding:1.5rem;">No marks recorded yet.</p>
+  {% endif %}
+</div>
+
+{# ── Row 4: Attendance History ── #}
+<div class="card">
+  <h2>Attendance History</h2>
+  {% if history %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Date</th><th>Day</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for a in history %}
+          <tr>
+            <td>{{ a.date.strftime('%d %b %Y') }}</td>
+            <td style="color:#64748b;font-size:0.88rem;">{{ a.date.strftime('%A') }}</td>
+            <td><span class="badge badge-{{ 'green' if a.status == 'Present' else 'red' }}">{{ a.status }}</span></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="empty">No attendance records yet.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

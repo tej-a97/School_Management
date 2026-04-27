@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block title %}Fees{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Fees</h1>
+    <p class="muted">Admin-only: add bills and mark them paid or unpaid.</p>
+  </div>
+  <button class="btn btn-primary" onclick="toggleAddBillForm()">+ Add Bill</button>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+  <a href="{{ url_for('fees', class_name=class_filter, section=section_filter) }}"
+     class="stat-card stat-blue clickable {% if not status_filter %}active{% endif %}">
+    <div class="stat-label">Total Fees</div>
+    <div class="stat-value">₹{{ '%.2f'|format(total) }}</div>
+  </a>
+  <a href="{{ url_for('fees', status='Paid', class_name=class_filter, section=section_filter) }}"
+     class="stat-card stat-green clickable {% if status_filter == 'Paid' %}active{% endif %}">
+    <div class="stat-label">Paid</div>
+    <div class="stat-value">₹{{ '%.2f'|format(paid) }}</div>
+  </a>
+  <a href="{{ url_for('fees', status='Unpaid', class_name=class_filter, section=section_filter) }}"
+     class="stat-card stat-red clickable {% if status_filter == 'Unpaid' %}active{% endif %}">
+    <div class="stat-label">Unpaid</div>
+    <div class="stat-value">₹{{ '%.2f'|format(unpaid) }}</div>
+  </a>
+</div>
+
+<!-- Add New Bill Form (hidden by default, shown on button click) -->
+<div class="card form-card" id="addBillForm" style="display:none;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <h2 style="margin:0;">Add New Bill</h2>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="toggleAddBillForm()">✕ Close</button>
+  </div>
+  <form method="POST" action="{{ url_for('fee_new') }}" class="form grid-4">
+    <div>
+      <label>Student</label>
+      <select name="student_id" required>
+        <option value="">-- Select --</option>
+        {% for s in students %}
+          <option value="{{ s.id }}">{{ s.name }} ({{ s.class_name }}{% if s.section %} · {{ s.section }}{% endif %} · {{ s.roll_number }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Title</label>
+      <input type="text" name="title" required placeholder="e.g. Term 1 Tuition" />
+    </div>
+    <div>
+      <label>Amount (₹)</label>
+      <input type="number" step="0.01" name="amount" required min="0" />
+    </div>
+    <div>
+      <label>Mode of Payment</label>
+      <select name="mode">
+        <option value="">— Select —</option>
+        {% for m in payment_modes %}
+          <option value="{{ m }}">{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Status</label>
+      <select name="initial_status" id="initialStatus" onchange="togglePaidFields()">
+        <option value="Unpaid">Unpaid</option>
+        <option value="Paid">Paid</option>
+      </select>
+    </div>
+    <!-- Paid On shown only when Status = Paid -->
+    <div id="paidOnGroup" style="display:none;">
+      <label>Paid On</label>
+      <input type="date" name="paid_on" id="paidOnField" />
+    </div>
+    <div class="span-4 form-actions">
+      <button class="btn btn-primary" type="submit">Add Bill</button>
+      <button type="button" class="btn btn-ghost" onclick="toggleAddBillForm()">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<!-- Two-column layout: Recent Transactions | (fills space when form is hidden) -->
+<div id="recentTxnsBlock">
+  <div class="card no-pad">
+    <h2 class="card-title">Recent Transactions <span class="muted" style="font-weight:400;font-size:13px"> — last 10 paid bills</span></h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Paid On</th>
+            <th>Student</th>
+            <th>Class</th>
+            <th>Title</th>
+            <th class="right">Amount</th>
+            <th>Mode</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fee, s in recent_txns %}
+            <tr>
+              <td>{{ fee.paid_on.strftime('%d %b %Y') if fee.paid_on else '—' }}</td>
+              <td><a href="{{ url_for('student_detail', sid=s.id) }}">{{ s.name }}</a></td>
+              <td>{{ s.class_name }}{% if s.section %} · {{ s.section }}{% endif %}</td>
+              <td>{{ fee.title }}</td>
+              <td class="right">₹{{ '%.2f'|format(fee.amount) }}</td>
+              <td>{{ fee.mode or '—' }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6" class="empty">No transactions yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Filters (above bills table) -->
+<form method="GET" class="filters">
+  <input type="hidden" name="status" value="{{ status_filter }}" />
+  <div>
+    <label>Class</label>
+    <select name="class_name">
+      <option value="">All classes</option>
+      {% for c in class_options %}
+        <option value="{{ c }}" {% if c == class_filter %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Section</label>
+    <select name="section">
+      <option value="">All sections</option>
+      {% for s in section_options %}
+        <option value="{{ s }}" {% if s == section_filter %}selected{% endif %}>Section {{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Status</label>
+    <select name="status">
+      <option value="">All</option>
+      <option value="Paid" {% if status_filter == 'Paid' %}selected{% endif %}>Paid</option>
+      <option value="Unpaid" {% if status_filter == 'Unpaid' %}selected{% endif %}>Unpaid</option>
+    </select>
+  </div>
+  <button class="btn btn-primary" type="submit">Apply</button>
+  {% if class_filter or section_filter or status_filter %}
+    <a href="{{ url_for('fees') }}" class="btn btn-ghost">Clear</a>
+  {% endif %}
+</form>
+
+<!-- Bills Table -->
+<div class="card no-pad">
+  <h2 class="card-title">
+    Bills
+    {% set chips = [] %}
+    {% if status_filter %}{% set _ = chips.append(status_filter) %}{% endif %}
+    {% if class_filter %}{% set _ = chips.append(class_filter) %}{% endif %}
+    {% if section_filter %}{% set _ = chips.append('Section ' ~ section_filter) %}{% endif %}
+    {% if chips %}<span class="muted" style="font-weight:400;font-size:13px"> — {{ chips|join(' · ') }}</span>{% endif %}
+  </h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Class</th>
+          <th>Section</th>
+          <th>Title</th>
+          <th class="right">Amount</th>
+          <th>Mode</th>
+          <th>Paid On</th>
+          <th>Status</th>
+          <th class="right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fee, s in rows %}
+          <tr>
+            <td><a href="{{ url_for('student_detail', sid=s.id) }}">{{ s.name }}</a></td>
+            <td>{{ s.class_name }}</td>
+            <td>{{ s.section or '—' }}</td>
+            <td>{{ fee.title }}</td>
+            <td class="right">₹{{ '%.2f'|format(fee.amount) }}</td>
+            <td>{{ fee.mode or '—' }}</td>
+            <td>{{ fee.paid_on.strftime('%d %b %Y') if fee.paid_on else '—' }}</td>
+            <td>
+              <span class="badge badge-{{ 'green' if fee.status == 'Paid' else 'red' }}">{{ fee.status }}</span>
+            </td>
+            <td class="right actions">
+              {% if fee.status == 'Unpaid' %}
+                <!-- Mark Paid: opens modal to capture mode + paid_on -->
+                <button class="btn btn-sm btn-success"
+                  onclick="openMarkPaidModal({{ fee.id }}, '{{ url_for('fee_toggle', fid=fee.id, status=status_filter) }}')">
+                  Mark Paid
+                </button>
+              {% else %}
+                <form method="POST" action="{{ url_for('fee_toggle', fid=fee.id, status=status_filter) }}" style="display:inline">
+                  <button class="btn btn-sm" type="submit">Mark Unpaid</button>
+                </form>
+              {% endif %}
+              <form method="POST" action="{{ url_for('fee_delete', fid=fee.id) }}" onsubmit="return confirm('Delete this bill?');" style="display:inline">
+                <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9" class="empty">No bills match these filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Mark Paid Modal -->
+<div id="markPaidModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:28px 32px;min-width:340px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
+    <h3 style="margin:0 0 18px;">Mark as Paid</h3>
+    <form method="POST" id="markPaidForm">
+      <div style="margin-bottom:14px;">
+        <label style="display:block;margin-bottom:5px;font-weight:500;">Mode of Payment <span style="color:red">*</span></label>
+        <select name="mode" id="modalMode" required style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:14px;">
+          <option value="">— Select —</option>
+          {% for m in payment_modes %}
+            <option value="{{ m }}">{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="display:block;margin-bottom:5px;font-weight:500;">Paid On <span style="color:red">*</span></label>
+        <input type="date" name="paid_on" id="modalPaidOn" required
+          style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:14px;box-sizing:border-box;" />
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button type="button" class="btn btn-ghost" onclick="closeMarkPaidModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Confirm Payment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ---- Add Bill form toggle ----
+function toggleAddBillForm() {
+  const form = document.getElementById('addBillForm');
+  const recent = document.getElementById('recentTxnsBlock');
+  const isHidden = form.style.display === 'none';
+  form.style.display = isHidden ? 'block' : 'none';
+  recent.style.display = isHidden ? 'none' : 'block';
+}
+
+// ---- Show/hide paid on date inside Add Bill form ----
+function togglePaidFields() {
+  const status = document.getElementById('initialStatus').value;
+  const show = status === 'Paid';
+  document.getElementById('paidOnGroup').style.display = show ? '' : 'none';
+  document.getElementById('paidOnField').required = show;
+}
+
+// ---- Mark Paid modal ----
+function openMarkPaidModal(feeId, actionUrl) {
+  const modal = document.getElementById('markPaidModal');
+  document.getElementById('markPaidForm').action = actionUrl;
+  // Set today's date as default
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('modalPaidOn').value = today;
+  document.getElementById('modalMode').value = '';
+  modal.style.display = 'flex';
+}
+
+function closeMarkPaidModal() {
+  document.getElementById('markPaidModal').style.display = 'none';
+}
+
+// Close modal on backdrop click
+document.getElementById('markPaidModal').addEventListener('click', function(e) {
+  if (e.target === this) closeMarkPaidModal();
+});
+</script>
+{% endblock %}

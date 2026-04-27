@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}School Management{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+{% if current_user.is_authenticated %}
+  <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">&#9776;</button>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-logo">SM</div>
+        <div>
+          <div class="brand-name">School Mgmt</div>
+          <div class="brand-sub">{{ current_user.role|capitalize }} Panel</div>
+        </div>
+      </div>
+      <nav>
+        <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="{{ url_for('students') }}" class="nav-link {% if request.endpoint and request.endpoint.startswith('student') %}active{% endif %}">Students</a>
+        <a href="{{ url_for('attendance') }}" class="nav-link {% if request.endpoint == 'attendance' %}active{% endif %}">Attendance</a>
+        {% if current_user.role == 'admin' %}
+          <a href="{{ url_for('approval_requests') }}" class="nav-link {% if request.endpoint == 'approval_requests' %}active{% endif %}">
+            Approval Requests
+            {% set total_pending = nav_pending_requests + nav_marks_pending %}
+            {% if total_pending %} <span style="background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:0.75rem;font-weight:700;margin-left:4px;">{{ total_pending }}</span>{% endif %}
+          </a>
+          <a href="{{ url_for('holidays') }}" class="nav-link {% if request.endpoint == 'holidays' %}active{% endif %}">Holidays</a>
+        {% endif %}
+        <a href="{{ url_for('marks') }}" class="nav-link {% if request.endpoint and request.endpoint.startswith('mark') %}active{% endif %}">Marks</a>
+        {% if current_user.role == 'admin' %}
+          <a href="{{ url_for('subjects') }}" class="nav-link {% if request.endpoint == 'subjects' %}active{% endif %}">Subjects</a>
+        {% endif %}
+        {% if current_user.role == 'admin' %}
+          <a href="{{ url_for('fees') }}" class="nav-link {% if request.endpoint and request.endpoint.startswith('fee') %}active{% endif %}">Fees</a>
+          <a href="{{ url_for('teachers') }}" class="nav-link {% if request.endpoint and request.endpoint.startswith('teacher') %}active{% endif %}">Teachers</a>
+        {% endif %}
+        <a href="{{ url_for('my_profile') }}" class="nav-link {% if request.endpoint == 'my_profile' %}active{% endif %}">My Profile</a>
+      </nav>
+    </aside>
+    <main class="content">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  {% if current_user.must_change_password %}
+  <div class="modal-backdrop" id="forcePwModal">
+    <div class="modal">
+      <h2>Set a New Password</h2>
+      <p class="muted">For your security, please change your temporary password before continuing.</p>
+      <form method="POST" action="{{ url_for('change_password') }}" class="form">
+        <label>New Password</label>
+        <input type="password" name="new_password" required minlength="6" autofocus />
+        <label>Confirm New Password</label>
+        <input type="password" name="confirm_password" required minlength="6" />
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-block">Update Password</button>
+        </div>
+        <div style="margin-top:10px;text-align:center">
+          <a href="{{ url_for('logout') }}" class="muted" style="font-size:13px">Sign out instead</a>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+{% else %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash flash-{{ category }} flash-floating">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+  {% block guest_content %}{% endblock %}
+{% endif %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

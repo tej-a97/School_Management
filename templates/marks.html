@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+{% block title %}Marks{% endblock %}
+{% block content %}
+{% set is_admin = current_user.role == 'admin' %}
+
+<div class="page-header">
+  <h1>Marks{% if is_admin %} — View All{% endif %}</h1>
+  <p class="muted">
+    {% if is_admin %}
+      Browse marks for any class. Select a class below to get started.
+    {% else %}
+      {{ class_name }}{% if section %} · Section {{ section }}{% endif %} — Bulk entry per exam &amp; subject.
+    {% endif %}
+  </p>
+</div>
+
+{% if is_admin %}
+{# ══════════════════════════════════════════════
+   ADMIN VIEW
+   ══════════════════════════════════════════════ #}
+
+<div class="card">
+  <h2 class="card-title" style="margin-bottom:0.75rem;">Select Class &amp; Filter</h2>
+  <form method="GET" class="filters" style="margin-bottom:0;">
+    <div>
+      <label>Class</label>
+      <select name="class_name" required>
+        <option value="">-- Select Class --</option>
+        {% for c in class_options %}
+          <option value="{{ c }}" {% if c == class_name %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Section</label>
+      <select name="section">
+        <option value="">All sections</option>
+        {% for s in section_options %}
+          <option value="{{ s }}" {% if s == section %}selected{% endif %}>Section {{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Subject</label>
+      <select name="subject">
+        <option value="">-- All Subjects --</option>
+        {% for s in subject_list %}
+          <option value="{{ s }}" {% if s == sel_subject %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn btn-primary" type="submit">View</button>
+  </form>
+</div>
+
+{% if not class_name %}
+  <div class="card" style="text-align:center;padding:3rem;color:#94a3b8;margin-top:1rem;">
+    <div style="font-size:3rem;margin-bottom:0.75rem;">📊</div>
+    <p style="font-size:1rem;font-weight:500;color:#64748b;">Select a class above to view marks.</p>
+    <p style="font-size:0.88rem;">Once selected, you will see one table per subject with all exam scores side by side.</p>
+  </div>
+{% elif pivot_tables %}
+  {% for tbl in pivot_tables %}
+  <div class="card no-pad" style="margin-top:1.25rem;">
+    <h2 class="card-title" style="display:flex;align-items:center;gap:0.6rem;">
+      📚 {{ tbl.subject }}
+      <span class="muted" style="font-size:0.82rem;font-weight:400;">{{ class_name }}{% if section %} · Section {{ section }}{% endif %}</span>
+    </h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Roll No.</th>
+            <th>Student Name</th>
+            {% for exam in tbl.exams %}
+              <th class="right">{{ exam }}<br><span style="font-size:0.75rem;font-weight:400;color:#94a3b8;">/ {{ tbl.max_per_exam[exam]|int }}</span></th>
+            {% endfor %}
+            <th class="right">Total</th>
+            <th class="right">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in tbl.rows %}
+          <tr>
+            <td><span class="pill">{{ r.student.roll_number }}</span></td>
+            <td><a href="{{ url_for('student_detail', sid=r.student.id) }}" style="color:inherit;font-weight:500;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">{{ r.student.name }}</a></td>
+            {% for exam in tbl.exams %}
+              {% set sc = r.scores[exam] %}
+              <td class="right">
+                {% if sc is not none %}
+                  <span style="font-weight:500;">{{ '%.1f'|format(sc) }}</span>
+                  {% if sc >= tbl.max_per_exam[exam] * 0.35 %}
+                    <span style="color:#16a34a;font-size:0.72rem;font-weight:700;margin-left:2px;">P</span>
+                  {% else %}
+                    <span style="color:#dc2626;font-size:0.72rem;font-weight:700;margin-left:2px;">F</span>
+                  {% endif %}
+                {% else %}
+                  <span style="color:#cbd5e1;">—</span>
+                {% endif %}
+              </td>
+            {% endfor %}
+            <td class="right" style="font-weight:600;">{{ r.total }}</td>
+            <td class="right">
+              {% if r.pct_val is not none %}
+                <span style="font-weight:600;color:{% if r.pct_val >= 75 %}#15803d{% elif r.pct_val >= 50 %}#d97706{% else %}#dc2626{% endif %};">{{ r.pct }}</span>
+              {% else %}
+                <span style="color:#cbd5e1;">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:#f8fafc;font-weight:600;font-size:0.88rem;color:#475569;">
+            <td colspan="2" style="padding:0.5rem 0.75rem;">Class Average</td>
+            {% for exam in tbl.exams %}
+              <td class="right">
+                {% if tbl.avg_row[exam] is not none %}
+                  {{ '%.1f'|format(tbl.avg_row[exam]) }}
+                {% else %}
+                  <span style="color:#cbd5e1;">—</span>
+                {% endif %}
+              </td>
+            {% endfor %}
+            <td class="right">—</td>
+            <td class="right">—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card" style="text-align:center;padding:2.5rem;color:#94a3b8;margin-top:1rem;">
+    <div style="font-size:3rem;margin-bottom:0.5rem;">📭</div>
+    <p>No marks entered for <strong>{{ class_name }}</strong>{% if section %} · Section {{ section }}{% endif %}{% if sel_exam %} · {{ sel_exam }}{% endif %}{% if sel_subject %} · {{ sel_subject }}{% endif %} yet.</p>
+  </div>
+{% endif %}
+
+{% else %}
+{# ══════════════════════════════════════════════
+   TEACHER VIEW
+   ══════════════════════════════════════════════ #}
+
+<div class="card">
+  <h2 class="card-title" style="margin-bottom:0.75rem;">Step 1 — Select Exam &amp; Subject</h2>
+  <form method="GET" class="filters" style="margin-bottom:0;">
+    <div>
+      <label>Exam</label>
+      <select name="exam" required>
+        <option value="">-- Select Exam --</option>
+        {% for e in exam_types %}
+          <option value="{{ e }}" {% if e == sel_exam %}selected{% endif %}>{{ e }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Subject</label>
+      <select name="subject" required>
+        <option value="">-- Select Subject --</option>
+        {% for s in subject_list %}
+          <option value="{{ s }}" {% if s == sel_subject %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn btn-primary" type="submit">Load</button>
+  </form>
+</div>
+
+{% if class_name and sel_exam and sel_subject %}
+
+{% if marks_state %}
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center;">
+    {% if marks_state.already_entered %}
+      <span style="background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:0.4rem 0.9rem;font-size:0.88rem;font-weight:600;">
+        ✏️ Marks already entered for {{ sel_exam }} · {{ sel_subject }}
+      </span>
+    {% else %}
+      <span style="background:#f0fdf4;color:#15803d;border-radius:6px;padding:0.4rem 0.9rem;font-size:0.88rem;font-weight:600;">
+        ⬜ No marks entered yet for {{ sel_exam }} · {{ sel_subject }}
+      </span>
+    {% endif %}
+    {% if marks_state.approved_req %}
+      <span style="background:#fef9c3;color:#854d0e;border-radius:6px;padding:0.4rem 0.9rem;font-size:0.88rem;font-weight:600;">
+        ✅ Admin approval active — 1 save allowed
+      </span>
+    {% elif marks_state.approval_used %}
+      <span style="background:#fef2f2;color:#dc2626;border-radius:6px;padding:0.4rem 0.9rem;font-size:0.88rem;font-weight:600;">
+        🔒 Approval used — no further edits allowed for this exam/subject
+      </span>
+    {% elif marks_state.daily_request_used %}
+      <span style="background:#fff7ed;color:#c2410c;border-radius:6px;padding:0.4rem 0.9rem;font-size:0.88rem;font-weight:600;">
+        ⚠️ Daily request quota used — try again tomorrow
+      </span>
+    {% endif %}
+  </div>
+{% endif %}
+
+<div class="card no-pad">
+  <h2 class="card-title">Step 2 — Enter Marks &nbsp;<span class="muted" style="font-size:0.85rem;font-weight:400;">{{ sel_exam }} · {{ sel_subject }}</span></h2>
+  <form method="POST">
+    <input type="hidden" name="action" value="save_marks" />
+    <input type="hidden" name="bulk_exam" value="{{ sel_exam }}" />
+    <input type="hidden" name="bulk_subject" value="{{ sel_subject }}" />
+    <div style="padding:0.5rem 1.25rem;border-bottom:1px solid #f1f5f9;display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
+      <label style="font-size:0.9rem;font-weight:600;">Max Score:</label>
+      <input type="number" name="max_score" value="{{ existing_max|int }}" min="1" step="1"
+             style="width:90px;padding:0.35rem 0.6rem;border:1px solid #e2e8f0;border-radius:6px;font-size:0.9rem;" />
+      <span class="muted" style="font-size:0.85rem;">Leave score blank to skip a student.</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Roll No.</th><th>Student Name</th>
+            <th class="right" style="width:130px;">Score</th>
+            <th class="right" style="width:100px;">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set can_act = marks_state and (marks_state.can_enter or marks_state.can_edit) %}
+          {% for s in students %}
+            {% set score = existing_marks.get(s.id) %}
+            {% set is_new_student = s.id in new_student_ids %}
+            {% set field_enabled = can_act or is_new_student %}
+            <tr {% if is_new_student %}style="background:#f0fdf4;"{% endif %}>
+              <td><span class="pill">{{ s.roll_number }}</span></td>
+              <td>
+                {{ s.name }}
+                {% if is_new_student %}
+                  <span style="background:#dcfce7;color:#15803d;border-radius:4px;padding:1px 6px;font-size:0.72rem;font-weight:700;margin-left:6px;">NEW</span>
+                {% endif %}
+              </td>
+              <td class="right">
+                <input type="number" name="score_{{ s.id }}"
+                  value="{{ '%.1f'|format(score) if score is not none else '' }}"
+                  min="0" step="0.5"
+                  style="width:90px;padding:0.3rem 0.5rem;border:1px solid {% if is_new_student %}#86efac{% else %}#e2e8f0{% endif %};border-radius:6px;font-size:0.9rem;text-align:right;"
+                  {% if not field_enabled %}disabled{% endif %}
+                  class="score-input" data-max="{{ existing_max }}" />
+              </td>
+              <td class="right" style="color:#64748b;font-size:0.85rem;">
+                {% if score is not none %}
+                  {{ '%.1f'|format(score / existing_max * 100) }}%
+                  {% if score >= existing_max * 0.35 %}
+                    <span style="color:#16a34a;font-size:0.78rem;font-weight:700;">P</span>
+                  {% else %}
+                    <span style="color:#dc2626;font-size:0.78rem;font-weight:700;">F</span>
+                  {% endif %}
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4" class="empty">No students found for this class/section.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if students %}
+      {% set has_new_students = new_student_ids | length > 0 %}
+      {% if not can_act and not has_new_students %}
+        <div id="marksApprovalMsg" class="flash flash-danger" style="margin:0.75rem 1.25rem 0;display:none;">
+          ⚠️ Seek approval from admin to enter or update marks for this exam/subject.
+        </div>
+      {% endif %}
+      <div class="form-actions">
+        {% if not can_act and not has_new_students %}
+          <button type="button" class="btn btn-primary" style="opacity:0.6;cursor:not-allowed;"
+            onclick="var m=document.getElementById('marksApprovalMsg');m.style.display='block';m.scrollIntoView({behavior:'smooth',block:'nearest'});">
+            {{ 'Update Marks' if marks_state and marks_state.already_entered else 'Save Marks' }}
+          </button>
+        {% else %}
+          <button class="btn btn-primary" type="submit" id="saveMarksBtn">
+            {{ 'Update Marks' if marks_state and marks_state.already_entered else 'Save Marks' }}
+          </button>
+        {% endif %}
+      </div>
+    {% endif %}
+  </form>
+</div>
+
+{% if marks_state and (marks_state.needs_request or marks_state.approval_used or pending_marks_request) %}
+<div class="card" style="border:1px solid #e0e7ff;background:#f8faff;margin-top:1rem;">
+  <h2 style="font-size:1.05rem;margin-bottom:0.6rem;">🔐 Admin Approval</h2>
+  {% if marks_state.approval_used %}
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:0.75rem 1rem;font-size:0.9rem;color:#dc2626;">
+      🔒 <strong>Approval already used.</strong> No further changes allowed for {{ sel_exam }} · {{ sel_subject }}.
+    </div>
+  {% elif pending_marks_request %}
+    <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:0.75rem 1rem;font-size:0.9rem;color:#854d0e;">
+      ⏳ <strong>Approval request pending</strong> — Sent on {{ pending_marks_request.created_at.strftime('%d %b %Y, %I:%M %p') }}.
+    </div>
+  {% elif marks_state.daily_request_used %}
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:0.75rem 1rem;font-size:0.9rem;color:#c2410c;">
+      ⚠️ <strong>Daily request limit reached.</strong> Try again tomorrow.
+    </div>
+  {% else %}
+    <p style="font-size:0.9rem;color:#64748b;margin-bottom:0.75rem;">
+      Admin approval required to edit <strong>{{ sel_exam }} · {{ sel_subject }}</strong>. Only 1 request per day allowed.
+    </p>
+    <form method="POST" class="form" style="max-width:480px;">
+      <input type="hidden" name="action" value="request_approval" />
+      <input type="hidden" name="req_exam" value="{{ sel_exam }}" />
+      <input type="hidden" name="req_subject" value="{{ sel_subject }}" />
+      <div>
+        <label>Reason <span style="color:#ef4444;">*</span></label>
+        <input type="text" name="reason" required placeholder="e.g. Incorrect marks entered, recheck needed..." />
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">Send Approval Request</button>
+      </div>
+    </form>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endif %}{# end teacher exam+subject block #}
+
+{% if summary %}
+<div class="card no-pad" style="margin-top:1.5rem;">
+  <h2 class="card-title">📊 Marks Summary — {{ class_name }}{% if section %} · Section {{ section }}{% endif %}</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Exam</th><th>Subject</th><th class="right">Students</th>
+          <th class="right">Avg</th><th class="right">Highest</th><th class="right">Lowest</th>
+          <th class="right">Pass</th><th class="right">Fail</th><th class="right">Pass %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in summary %}
+        <tr>
+          <td><span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:0.82rem;font-weight:600;">{{ row.exam }}</span></td>
+          <td>{{ row.subject }}</td>
+          <td class="right">{{ row.count }}</td>
+          <td class="right">{{ row.avg }} / {{ row.max_score|int }}</td>
+          <td class="right" style="color:#15803d;font-weight:600;">{{ row.highest }}</td>
+          <td class="right" style="color:#dc2626;font-weight:600;">{{ row.lowest }}</td>
+          <td class="right" style="color:#15803d;">{{ row.pass }}</td>
+          <td class="right" style="color:#dc2626;">{{ row.fail }}</td>
+          <td class="right">
+            {% set pct = (row.pass / row.count * 100) if row.count else 0 %}
+            <span style="font-weight:600;color:{% if pct >= 75 %}#15803d{% elif pct >= 50 %}#d97706{% else %}#dc2626{% endif %};">
+              {{ '%.0f'|format(pct) }}%
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endif %}{# end is_admin / teacher branch #}
+
+<script>
+(function () {
+  var unsaved = false;
+  var form = document.querySelector('input[name="action"][value="save_marks"]');
+  if (form) {
+    var marksForm = form.closest('form');
+    marksForm.addEventListener('input', function (e) {
+      if (e.target.classList.contains('score-input')) unsaved = true;
+    });
+    marksForm.addEventListener('submit', function () { unsaved = false; });
+  }
+  window.addEventListener('beforeunload', function (e) {
+    if (unsaved) {
+      e.preventDefault();
+      e.returnValue = 'You have unsaved marks. Are you sure you want to leave?';
+      return e.returnValue;
+    }
+  });
+  document.querySelectorAll('.nav-link').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      if (unsaved) {
+        var leave = confirm('You have unsaved marks. Are you sure you want to leave?');
+        if (!leave) e.preventDefault();
+        else unsaved = false;
+      }
+    });
+  });
+})();
+</script>
+
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if student else 'Add' }} Student{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ 'Edit' if student else 'Add' }} Student</h1>
+  <a href="{{ url_for('students') }}" class="btn btn-ghost">&larr; Back</a>
+</div>
+
+<div class="card form-card">
+  <form method="POST" class="form grid-2">
+    <div>
+      <label>Full Name</label>
+      <input type="text" name="name" required value="{{ student.name if student else '' }}" />
+    </div>
+    <div>
+      <label>Class</label>
+      <select name="class_name" required>
+        <option value="">-- Select --</option>
+        {% for c in class_options %}
+          <option value="{{ c }}" {% if student and student.class_name == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Section</label>
+      <select name="section">
+        <option value="">— None —</option>
+        {% for s in section_options %}
+          <option value="{{ s }}" {% if student and student.section == s %}selected{% endif %}>Section {{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Roll Number</label>
+      <input type="text" name="roll_number" required value="{{ student.roll_number if student else '' }}" />
+    </div>
+    <div>
+      <label>Date of Birth</label>
+      <input type="date" name="dob" required value="{{ student.dob.strftime('%Y-%m-%d') if student else '' }}" />
+    </div>
+    <div>
+      <label>Parent / Guardian Name</label>
+      <input type="text" name="parent_name" required value="{{ student.parent_name if student else '' }}" />
+    </div>
+    <div>
+      <label>Parent / Guardian Phone</label>
+      <input type="tel" name="parent_phone" placeholder="e.g. 9876543210" value="{{ student.parent_phone if student and student.parent_phone else '' }}" />
+    </div>
+    <div class="span-2">
+      <label>Address</label>
+      <textarea name="address" rows="2" placeholder="House No, Street, City...">{{ student.address if student and student.address else '' }}</textarea>
+    </div>
+    <div class="span-2 form-actions">
+      <button class="btn btn-primary" type="submit">{{ 'Save Changes' if student else 'Add Student' }}</button>
+      <a href="{{ url_for('students') }}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

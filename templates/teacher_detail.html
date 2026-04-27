@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ teacher.full_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ teacher.full_name }}</h1>
+    <p class="muted">Teacher Profile</p>
+  </div>
+  <div style="display:flex;gap:10px;">
+    <a href="{{ url_for('teacher_edit', uid=teacher.id) }}" class="btn btn-primary">Edit</a>
+    <a href="{{ url_for('teachers') }}" class="btn btn-ghost">&larr; Back</a>
+  </div>
+</div>
+
+<!-- Info Cards -->
+<div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="stat-card stat-blue">
+    <div class="stat-label">Total Students</div>
+    <div class="stat-value">{{ total_students }}</div>
+  </div>
+  <div class="stat-card stat-green">
+    <div class="stat-label">Attendance Days Recorded</div>
+    <div class="stat-value">{{ total_attendance_days }}</div>
+  </div>
+  <div class="stat-card stat-amber">
+    <div class="stat-label">Total Marks Entered</div>
+    <div class="stat-value">{{ total_marks }}</div>
+  </div>
+</div>
+
+<!-- Profile Details -->
+<div class="card form-card">
+  <h2 style="margin-top:0;">Profile Details</h2>
+  <div class="form grid-2" style="pointer-events:none;">
+    <div>
+      <label>Full Name</label>
+      <input type="text" value="{{ teacher.full_name }}" readonly style="background:#f9fafb;" />
+    </div>
+    <div>
+      <label>Username</label>
+      <input type="text" value="@{{ teacher.username }}" readonly style="background:#f9fafb;" />
+    </div>
+    <div>
+      <label>Phone Number</label>
+      <input type="text" value="{{ teacher.phone or '—' }}" readonly style="background:#f9fafb;" />
+    </div>
+    <div>
+      <label>Subject Assignment</label>
+      <input type="text" value="{{ teacher.subject_assignment or '—' }}" readonly style="background:#f9fafb;" />
+    </div>
+    <div>
+      <label>Assigned Class</label>
+      <input type="text" value="{{ teacher.assigned_class or '—' }}{% if teacher.assigned_section %} · Section {{ teacher.assigned_section }}{% endif %}" readonly style="background:#f9fafb;" />
+    </div>
+    <div class="span-2">
+      <label>Address</label>
+      <input type="text" value="{{ teacher.address or '—' }}" readonly style="background:#f9fafb;" />
+    </div>
+    <div>
+      <label>Account Status</label>
+      <input type="text" value="{{ 'Pending password change' if teacher.must_change_password else 'Active' }}" readonly style="background:#f9fafb;" />
+    </div>
+    <div>
+      <label>Last Login</label>
+      <input type="text" value="{{ teacher.last_login.strftime('%d %b %Y, %I:%M %p') if teacher.last_login else 'Never' }}" readonly style="background:#f9fafb;" />
+    </div>
+    <div>
+      <label>Member Since</label>
+      <input type="text" value="{{ teacher.created_at.strftime('%d %b %Y') }}" readonly style="background:#f9fafb;" />
+    </div>
+  </div>
+</div>
+
+<!-- Password Reset -->
+<div class="card form-card">
+  <h2 style="margin-top:0;">Reset Password</h2>
+  <form method="POST" action="{{ url_for('teacher_reset', uid=teacher.id) }}" class="form grid-2" onsubmit="return confirm('Reset password for this teacher?');">
+    <div>
+      <label>New Password</label>
+      <input type="password" name="new_password" placeholder="Min. 6 characters" minlength="6" required />
+    </div>
+    <div style="display:flex;align-items:flex-end;">
+      <button class="btn btn-primary" type="submit">Reset Password</button>
+    </div>
+  </form>
+</div>
+
+<!-- Danger Zone -->
+<div class="card form-card" style="border:1px solid #fca5a5;">
+  <h2 style="margin-top:0;color:#dc2626;">Danger Zone</h2>
+  <p class="muted">Removing a teacher cannot be undone.</p>
+  <form method="POST" action="{{ url_for('teacher_delete', uid=teacher.id) }}" onsubmit="return confirm('Permanently remove {{ teacher.full_name }}?');">
+    <button class="btn btn-danger" type="submit">Remove Teacher</button>
+  </form>
+</div>
+{% endblock %}

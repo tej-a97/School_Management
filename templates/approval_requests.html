@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Approval Requests{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>🔐 Approval Requests</h1>
+  <p class="muted">Review and approve or reject teacher requests for attendance and marks.</p>
+</div>
+
+{% set total_pending = att_pending + mrk_pending %}
+{% if total_pending > 0 %}
+<div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:0.75rem 1.25rem;margin-bottom:1rem;color:#854d0e;font-size:0.95rem;">
+  ⚠️ <strong>{{ total_pending }} pending request{{ 's' if total_pending != 1 }}</strong> awaiting your approval
+  {% if att_pending and mrk_pending %}
+    — {{ att_pending }} attendance, {{ mrk_pending }} marks.
+  {% elif att_pending %}
+    — {{ att_pending }} attendance.
+  {% else %}
+    — {{ mrk_pending }} marks.
+  {% endif %}
+</div>
+{% endif %}
+
+<form method="GET" class="filters">
+  <div>
+    <label>Status</label>
+    <select name="status" onchange="this.form.submit()">
+      <option value="Pending"  {% if status_filter=='Pending'  %}selected{% endif %}>Pending</option>
+      <option value="Approved" {% if status_filter=='Approved' %}selected{% endif %}>Approved</option>
+      <option value="Rejected" {% if status_filter=='Rejected' %}selected{% endif %}>Rejected</option>
+    </select>
+  </div>
+</form>
+
+{# ── Attendance Requests Table ── #}
+<div style="margin-bottom:0.5rem;margin-top:0.25rem;">
+  <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:0.5rem;">
+    📅 Attendance Requests
+    {% if att_pending %}<span style="background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:0.75rem;font-weight:700;margin-left:6px;">{{ att_pending }}</span>{% endif %}
+  </h2>
+</div>
+
+{% if att_requests %}
+<form method="POST" action="{{ url_for('bulk_resolve_attendance_requests') }}" id="bulkAttForm">
+  <div style="display:flex;gap:0.75rem;margin-bottom:0.75rem;align-items:center;flex-wrap:wrap;">
+    <label style="font-size:0.9rem;color:#64748b;">
+      <input type="checkbox" id="selectAllAtt" onchange="toggleAll('att-cb', this)" style="margin-right:4px;" />
+      Select all
+    </label>
+    <button type="submit" name="action" value="approve" class="btn btn-primary"
+      style="font-size:0.85rem;padding:0.35rem 0.9rem;" onclick="return confirmBulk('att-cb','approve')">✅ Bulk Approve</button>
+    <button type="submit" name="action" value="reject" class="btn btn-danger"
+      style="font-size:0.85rem;padding:0.35rem 0.9rem;" onclick="return confirmBulk('att-cb','reject')">❌ Bulk Reject</button>
+  </div>
+
+  <div class="card no-pad" style="margin-bottom:2rem;">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px;"></th>
+            <th>Teacher</th>
+            <th>Requested Date</th>
+            <th>Type</th>
+            <th>Reason</th>
+            <th>Requested At</th>
+            <th>Status</th>
+            {% if status_filter == 'Pending' %}<th class="right">Actions</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in att_requests %}
+          <tr>
+            <td>
+              {% if r.status == 'Pending' %}
+              <input type="checkbox" name="req_ids" value="{{ r.id }}" class="att-cb" />
+              {% endif %}
+            </td>
+            <td><strong>{{ r.teacher.full_name }}</strong></td>
+            <td>{{ r.request_date.strftime('%d %b %Y') }} <span style="color:#64748b;font-size:0.82rem;">({{ r.request_date.strftime('%A') }})</span></td>
+            <td>
+              <span style="background:{% if r.request_type=='past_date' %}#fef3c7;color:#92400e{% else %}#eff6ff;color:#1d4ed8{% endif %};border-radius:4px;padding:2px 8px;font-size:0.82rem;font-weight:600;">
+                {{ 'Past Date' if r.request_type == 'past_date' else 'Re-edit' }}
+              </span>
+            </td>
+            <td style="max-width:250px;word-break:break-word;">{{ r.reason }}</td>
+            <td style="color:#64748b;font-size:0.85rem;">{{ r.created_at.strftime('%d %b %Y, %I:%M %p') }}</td>
+            <td>
+              {% if r.status == 'Pending' %}
+                <span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:0.82rem;font-weight:600;">⏳ Pending</span>
+              {% elif r.status == 'Approved' %}
+                <span style="background:#f0fdf4;color:#15803d;border-radius:4px;padding:2px 8px;font-size:0.82rem;font-weight:600;">✅ Approved</span>
+              {% else %}
+                <span style="background:#fef2f2;color:#dc2626;border-radius:4px;padding:2px 8px;font-size:0.82rem;font-weight:600;">❌ Rejected</span>
+              {% endif %}
+              {% if r.resolved_at %}
+                <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">{{ r.resolved_at.strftime('%d %b, %I:%M %p') }}</div>
+              {% endif %}
+            </td>
+            {% if status_filter == 'Pending' %}
+            <td class="right">
+              {% if r.status == 'Pending' %}
+              <form method="POST" action="{{ url_for('resolve_attendance_request', rid=r.id) }}" style="display:inline;">
+                <button name="action" value="approve" class="btn btn-sm" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;" onclick="return confirm('Approve this request?')">✅ Approve</button>
+              </form>
+              <form method="POST" action="{{ url_for('resolve_attendance_request', rid=r.id) }}" style="display:inline;">
+                <button name="action" value="reject" class="btn btn-sm btn-danger" onclick="return confirm('Reject this request?')">❌ Reject</button>
+              </form>
+              {% endif %}
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</form>
+{% else %}
+<div class="card" style="text-align:center;padding:2rem;color:#94a3b8;margin-bottom:2rem;">
+  <div style="font-size:2.5rem;margin-bottom:0.5rem;">📭</div>
+  <p>No {{ status_filter.lower() }} attendance requests.</p>
+</div>
+{% endif %}
+
+{# ── Marks Requests Table ── #}
+<div style="margin-bottom:0.5rem;">
+  <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:0.5rem;">
+    📝 Marks Requests
+    {% if mrk_pending %}<span style="background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:0.75rem;font-weight:700;margin-left:6px;">{{ mrk_pending }}</span>{% endif %}
+  </h2>
+</div>
+
+{% if mrk_requests %}
+<form method="POST" action="{{ url_for('bulk_resolve_marks_requests') }}" id="bulkMrkForm">
+  <div style="display:flex;gap:0.75rem;margin-bottom:0.75rem;align-items:center;flex-wrap:wrap;">
+    <label style="font-size:0.9rem;color:#64748b;">
+      <input type="checkbox" id="selectAllMrk" onchange="toggleAll('mrk-cb', this)" style="margin-right:4px;" />
+      Select all
+    </label>
+    <button type="submit" name="action" value="approve" class="btn btn-primary"
+      style="font-size:0.85rem;padding:0.35rem 0.9rem;" onclick="return confirmBulk('mrk-cb','approve')">✅ Bulk Approve</button>
+    <button type="submit" name="action" value="reject" class="btn btn-danger"
+      style="font-size:0.85rem;padding:0.35rem 0.9rem;" onclick="return confirmBulk('mrk-cb','reject')">❌ Bulk Reject</button>
+  </div>
+
+  <div class="card no-pad">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px;"></th>
+            <th>Teacher</th><th>Class</th><th>Exam</th><th>Subject</th>
+            <th>Reason</th><th>Requested At</th><th>Status</th>
+            {% if status_filter == 'Pending' %}<th class="right">Actions</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in mrk_requests %}
+          <tr>
+            <td>{% if r.status == 'Pending' %}<input type="checkbox" name="req_ids" value="{{ r.id }}" class="mrk-cb" />{% endif %}</td>
+            <td><strong>{{ r.requester.full_name }}</strong></td>
+            <td>{{ r.class_name }}</td>
+            <td><span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:0.82rem;font-weight:600;">{{ r.exam }}</span></td>
+            <td>{{ r.subject }}</td>
+            <td style="max-width:220px;word-break:break-word;font-size:0.9rem;">{{ r.reason }}</td>
+            <td style="color:#64748b;font-size:0.85rem;">{{ r.created_at.strftime('%d %b %Y, %I:%M %p') }}</td>
+            <td>
+              {% if r.status == 'Pending' %}
+                <span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:0.82rem;font-weight:600;">⏳ Pending</span>
+              {% elif r.status == 'Approved' %}
+                <span style="background:#f0fdf4;color:#15803d;border-radius:4px;padding:2px 8px;font-size:0.82rem;font-weight:600;">✅ Approved</span>
+              {% else %}
+                <span style="background:#fef2f2;color:#dc2626;border-radius:4px;padding:2px 8px;font-size:0.82rem;font-weight:600;">❌ Rejected</span>
+              {% endif %}
+              {% if r.resolved_at %}<div style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">{{ r.resolved_at.strftime('%d %b, %I:%M %p') }}</div>{% endif %}
+            </td>
+            {% if status_filter == 'Pending' %}
+            <td class="right">
+              {% if r.status == 'Pending' %}
+              <form method="POST" action="{{ url_for('resolve_marks_request', rid=r.id) }}" style="display:inline;">
+                <button name="action" value="approve" class="btn btn-sm" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;" onclick="return confirm('Approve this request?')">✅ Approve</button>
+              </form>
+              <form method="POST" action="{{ url_for('resolve_marks_request', rid=r.id) }}" style="display:inline;">
+                <button name="action" value="reject" class="btn btn-sm btn-danger" onclick="return confirm('Reject this request?')">❌ Reject</button>
+              </form>
+              {% endif %}
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</form>
+{% else %}
+<div class="card" style="text-align:center;padding:2rem;color:#94a3b8;">
+  <div style="font-size:2.5rem;margin-bottom:0.5rem;">📭</div>
+  <p>No {{ status_filter.lower() }} marks requests.</p>
+</div>
+{% endif %}
+
+<script>
+function toggleAll(cls, cb) {
+  document.querySelectorAll('.' + cls).forEach(c => c.checked = cb.checked);
+}
+function confirmBulk(cls, action) {
+  const checked = document.querySelectorAll('.' + cls + ':checked').length;
+  if (!checked) { alert('Select at least one request.'); return false; }
+  return confirm((action === 'approve' ? 'Approve' : 'Reject') + ' ' + checked + ' request(s)?');
+}
+</script>
+{% endblock %}

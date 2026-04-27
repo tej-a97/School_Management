@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Teacher' if teacher else 'Add Teacher' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ 'Edit Teacher' if teacher else 'Add Teacher' }}</h1>
+  <a href="{{ url_for('teacher_detail', uid=teacher.id) if teacher else url_for('teachers') }}" class="btn btn-ghost">&larr; Back</a>
+</div>
+<div class="card form-card">
+  {% if not teacher %}
+  <p class="muted" style="margin-top:0">
+    The teacher will be required to change this password on first login.
+  </p>
+  {% endif %}
+  <form method="POST" class="form grid-2">
+    <div>
+      <label>Full Name</label>
+      <input type="text" name="full_name" required value="{{ teacher.full_name if teacher else '' }}" />
+    </div>
+    <div>
+      <label>Username</label>
+      <input type="text" name="username" required value="{{ teacher.username if teacher else '' }}" />
+    </div>
+    <div>
+      <label>Phone Number</label>
+      <input type="text" name="phone" placeholder="e.g. 9876543210" value="{{ teacher.phone or '' if teacher else '' }}" />
+    </div>
+    <div>
+      <label>Subject Assignment</label>
+      <input type="text" name="subject_assignment" placeholder="e.g. Maths, Science" value="{{ teacher.subject_assignment or '' if teacher else '' }}" />
+    </div>
+    <div>
+      <label>Assigned Class <span style="color:red">*</span></label>
+      <select name="assigned_class" required>
+        <option value="">-- Select Class --</option>
+        {% for c in class_options %}
+          <option value="{{ c }}" {% if teacher and teacher.assigned_class == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Assigned Section</label>
+      <select name="assigned_section">
+        <option value="">-- No Section --</option>
+        {% for s in section_options %}
+          <option value="{{ s }}" {% if teacher and teacher.assigned_section == s %}selected{% endif %}>Section {{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="span-2">
+      <label>Address</label>
+      <input type="text" name="address" placeholder="e.g. 12 Main St, City" value="{{ teacher.address or '' if teacher else '' }}" />
+    </div>
+    {% if not teacher %}
+    <div class="span-2">
+      <label>Temporary Password</label>
+      <input type="text" name="password" required minlength="6" />
+    </div>
+    {% endif %}
+    <div class="span-2 form-actions">
+      <button class="btn btn-primary" type="submit">{{ 'Save Changes' if teacher else 'Create Teacher' }}</button>
+      <a href="{{ url_for('teacher_detail', uid=teacher.id) if teacher else url_for('teachers') }}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
